@@ -1,0 +1,66 @@
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  frontend:
+  backend:
+name: "my-app"
+services:
+  proxy:
+    container_name: my-app-proxy
+    image: nginx:latest
+    ports:
+      - "127.0.0.1:8010:80"
+    volumes:
+      - ../:/var/www/app
+      - ./nginx/app.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - frontend
+      - backend
+    depends_on:
+      - api
+
+  api:
+    container_name: my-app-api
+    build:
+      context: ..
+      dockerfile: .docker/api/Dockerfile
+    volumes:
+      - ../:/usr/src/app
+    working_dir: /usr/src/app
+    command: npm run start:dev
+    ports:
+      - "3000:3000"
+    networks:
+      - backend
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    container_name: my-app-db
+    image: postgres:latest
+    ports:
+      - "127.0.0.1:5410:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    env_file:
+      - ../.env
+    environment:
+      POSTGRES_PASSWORD: 'password'
+      POSTGRES_DB: 'my-app-db-name'
+      POSTGRES_USER: 'user'
+    restart: always
+    networks:
+      - backend
+
+  redis:
+    container_name: my-app-redis
+    image: redis:latest
+    sysctls:
+      - net.core.somaxconn=511
+    volumes:
+      - redis-data:/data
+    networks:
+      - backend
